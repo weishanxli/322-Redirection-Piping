@@ -197,7 +197,7 @@ void eval(char *cmdline)
 			int i = 0;
 			while (argv[i] != NULL) {
 
-				//changing file descriptor to be stdin
+				//
 				if (!strcmp(argv[i], "<")) {
 					int fd0 = open(argv[i+1], O_RDONLY);
 	    			dup2(fd0, 0);
@@ -206,12 +206,30 @@ void eval(char *cmdline)
 	    			argv[i+1] = NULL;
 	    			i=i+2;
 				} 
-				//changing file descriptor to be stdout
+				//
 				else if (!strcmp(argv[i], ">")) {
 					int fd1 = open(argv[i+1], O_WRONLY|O_CREAT,S_IRWXU|S_IRWXG|S_IRWXO|O_TRUNC);
 	    			dup2(fd1, 1);
 	    			close(fd1);
 	    			argv[i] = NULL;
+	    			argv[i+1] = NULL;
+	    			i=i+2;
+				}
+				//redirect 
+				else if (!strcmp(argv[i], ">>")) {
+					int fd2 = open(argv[i+1], O_WRONLY|O_CREAT,S_IRWXU|S_IRWXG|S_IRWXO|O_TRUNC|O_APPEND);
+					dup2(fd2, 1);
+					close(fd2);
+					argv[i] = NULL;
+	    			argv[i+1] = NULL;
+	    			i=i+2;
+				}
+				//
+				else if (!strcmp(argv[i], "2>")) {
+					int fd3 = open(argv[i+1], O_WRONLY|O_CREAT,S_IRWXU|S_IRWXG|S_IRWXO|O_TRUNC);
+					dup2(fd3, 2);
+					close(fd3);
+					argv[i] = NULL;
 	    			argv[i+1] = NULL;
 	    			i=i+2;
 				}
