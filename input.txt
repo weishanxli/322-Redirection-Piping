@@ -1,2 +1,1 @@
-hello > input.txt
-Weishan
+hello
