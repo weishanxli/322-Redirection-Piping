@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include <fcntl.h>
 
 /* Misc manifest constants */
 #define MAXLINE    1024   /* max line size */
@@ -188,24 +189,33 @@ void eval(char *cmdline)
 	if (!builtin_cmd(argv)){
 		//blocking SIGINT signals
 		sigprocmask(SIG_BLOCK, &mask, &pmask);
-		if(!strcmp(argv[2],">")){
-			printf("gotem");
-		}
+		
 		//fork a child process
 		if ((pid = fork()) == 0){
 			
-			if(!strcmp(argv[2], "<")){
-				int fd0 = open(input, O_RDONLY);
-        			dup2(fd0, STDIN_FILENO);
-        			close(fd0);
-			}
-				
-			if(!strcmp(arv[2], ">")){
-        			int fd1 = creat(output , 0644) ;
-        			dup2(fd1, STDOUT_FILENO);
-        			close(fd1);
+			//--------------redirects---------------
+			int i = 0;
+			while (argv[i] != NULL) {
+
+				//changing file descriptor to be stdin
+				if (!strcmp(argv[i], "<")) {
+					int fd0 = open(argv[i+1], O_RDONLY);
+	    			dup2(fd0, 0);
+	    			close(fd0);
+				}
+
+				//changing file descriptor to be stdout
+				if (!strcmp(argv[i], ">")) {
+					int fd1 = open(argv[i+1], O_WRONLY|O_CREAT,S_IRWXU|S_IRWXG|S_IRWXO) ;
+	    			dup2(fd1, 1);
+	    			close(fd1);
+				}
+
+				i++;
 			}
 			
+			//-------------end redirects------------
+
 			//unblock signals
 			sigprocmask(SIG_SETMASK, &pmask, NULL);
 			//setting the process's group id
