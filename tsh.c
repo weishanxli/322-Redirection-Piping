@@ -188,9 +188,24 @@ void eval(char *cmdline)
 	if (!builtin_cmd(argv)){
 		//blocking SIGINT signals
 		sigprocmask(SIG_BLOCK, &mask, &pmask);
-
+		if(!strcmp(argv[2],">")){
+			printf("gotem");
+		}
 		//fork a child process
 		if ((pid = fork()) == 0){
+			
+			if(!strcmp(argv[2], "<")){
+				int fd0 = open(input, O_RDONLY);
+        			dup2(fd0, STDIN_FILENO);
+        			close(fd0);
+			}
+				
+			if(!strcmp(arv[2], ">")){
+        			int fd1 = creat(output , 0644) ;
+        			dup2(fd1, STDOUT_FILENO);
+        			close(fd1);
+			}
+			
 			//unblock signals
 			sigprocmask(SIG_SETMASK, &pmask, NULL);
 			//setting the process's group id
