@@ -193,40 +193,48 @@ void eval(char *cmdline)
 		//fork a child process
 		if ((pid = fork()) == 0){
 			
-			//--------------redirects---------------
+			//--------------checking for redirects---------------
 			int i = 0;
 			while (argv[i] != NULL) {
 
-				//
+				//redirect next filename to be stdin
 				if (!strcmp(argv[i], "<")) {
+
+					//open file and set flags/permissions, returns file descriptor of file
 					int fd0 = open(argv[i+1], O_RDONLY);
+					//set file to stdin
 	    			dup2(fd0, 0);
+	    			//close file
 	    			close(fd0);
 	    			argv[i] = NULL;
 	    			argv[i+1] = NULL;
 	    			i=i+2;
 				} 
-				//
+				//redirect next filename to be stdout 
 				else if (!strcmp(argv[i], ">")) {
-					int fd1 = open(argv[i+1], O_WRONLY|O_CREAT,S_IRWXU|S_IRWXG|S_IRWXO|O_TRUNC);
+
+					//open file and set flags/permissions, returns file descriptor of file
+					int fd1 = open(argv[i+1], O_WRONLY|O_TRUNC|O_CREAT, S_IRWXU|S_IRWXG|S_IRWXO);
+	    			//set file to stdout
 	    			dup2(fd1, 1);
 	    			close(fd1);
 	    			argv[i] = NULL;
 	    			argv[i+1] = NULL;
 	    			i=i+2;
 				}
-				//redirect 
+				//redirect next filename to be stdout, but append instead of overwrite
 				else if (!strcmp(argv[i], ">>")) {
-					int fd2 = open(argv[i+1], O_WRONLY|O_CREAT,S_IRWXU|S_IRWXG|S_IRWXO|O_TRUNC|O_APPEND);
+					int fd2 = open(argv[i+1], O_WRONLY|O_APPEND|O_CREAT, S_IRWXU|S_IRWXG|S_IRWXO);
 					dup2(fd2, 1);
 					close(fd2);
 					argv[i] = NULL;
 	    			argv[i+1] = NULL;
 	    			i=i+2;
 				}
-				//
+				//redirect stderr to next filename
 				else if (!strcmp(argv[i], "2>")) {
 					int fd3 = open(argv[i+1], O_WRONLY|O_CREAT,S_IRWXU|S_IRWXG|S_IRWXO|O_TRUNC);
+					//set file to stderr
 					dup2(fd3, 2);
 					close(fd3);
 					argv[i] = NULL;
@@ -237,7 +245,6 @@ void eval(char *cmdline)
 					i++;
 				}	
 			}
-			
 			//-------------end redirects------------
 
 			//unblock signals
@@ -245,11 +252,44 @@ void eval(char *cmdline)
 			//setting the process's group id
 			setpgid(0,0);
 
-			//executing command
-			if (execve(argv[0], argv, environ) < 0){
-				printf("%s: Command not found.\n", argv[0]);
-				exit(0);
+			//-------------piping-----------------
+			int p = 0;
+			int isPipe = 0;
+			while (argv[p] != NULL) {
+				if (!strcmp(argv[p], "|")) {
+					isPipe = 1;
+
+					int pd[2];
+			        pipe(pd);
+
+			        if (!fork()) {
+			            dup2(pd[1], 1); // remap output back to parent
+			            execve(argv[p], argv, NULL);
+			            perror("exec");
+			            abort();
+			        }
+
+			        // remap output from previous child to input
+			        dup2(pd[0], 0);
+			        close(pd[1]);
+
+				}
 			}
+
+			//-------------end piping-----------------
+
+			//executing command
+			if (isPipe) {
+				execve(argv[p], argv, environ);
+			} else {
+				if (execve(argv[0], argv, environ) < 0) {
+					printf("%s: Command not found.\n", argv[0]);
+					exit(0);
+				}
+				
+			}
+			//executing command
+			
 		}
 
 		//if process in foreground
