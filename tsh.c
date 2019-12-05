@@ -263,31 +263,35 @@ void eval(char *cmdline)
 			int p = 0;
 			int finalPipeIndex = 0;
 			int isPipe = 0;
+			int prevPipe = 0;
 			while (argv[p] != NULL) {
 				
 				if (!strcmp(argv[p], "|")) {
-					isPipe = 1;
-					
+					isPipe = 1;	
 					int pd[2];
-			        pipe(pd);
-						
+			        	pipe(pd);
 					dup2(pd[0],0);
 					argv[p] = NULL;
 					
 					
-		        	if (!fork()) {
-		            	dup2(pd[1], 1); // remap output back to parent
-		            	if(finalPipeIndex == 0) {
+		        		if (!fork()) {
+		            			dup2(pd[1], 1); // remap output back to parent
+		            			if(finalPipeIndex == 0) {
 							execve(argv[0], argv, environ);
-						} else if (finalPipeIndex = numPipes) {
+						} else {
+							dup2(prevPipe, 0);
 							execve(argv[finalPipeIndex+1], &argv[finalPipeIndex + 1], environ);
+							close(prevPipe);
 						}
+					
+						close(pd[1]);
 						exit(0);
 			        }
-
-			        close(pd[0]);
+				
+				prevPipe = pd[0];
+			        
 			        close(pd[1]);
-					finalPipeIndex = p;
+				finalPipeIndex = p;
 				}
 				p++;
 			}
@@ -298,6 +302,7 @@ void eval(char *cmdline)
 			//executing command
 			if(isPipe == 1){
 				execve(argv[finalPipeIndex + 1], &argv[finalPipeIndex+1], environ);
+				//close(pd[0]);
 				exit(0);
 			}else if (execve(argv[0], argv, environ) < 0) {
 				printf("%s: Command not found.\n", argv[0]);
