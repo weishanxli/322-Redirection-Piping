@@ -254,43 +254,46 @@ void eval(char *cmdline)
 
 			//-------------piping-----------------
 			int numPipes = 0;
-			while (argv[i] != NULL) {
+			while (argv[i] != NULL) {			//Count number of pipes in command
 				if (!strcmp(argv[i], "|")) {
 					numPipes++;
 				}	
 			}
 
-			int p = 0;
+			int p = 0;			//initialize iterator, pipe boolean, previous pipe index and previous pipe read fd
 			int finalPipeIndex = 0;
 			int isPipe = 0;
 			int prevPipe = 0;
-			while (argv[p] != NULL) {
+			while (argv[p] != NULL) {				//loop through command
 				
-				if (!strcmp(argv[p], "|")) {
+				if (!strcmp(argv[p], "|")) {			//stop on pipe
 					isPipe = 1;	
-					int pd[2];
+					int pd[2];			//initialize pipe
 			        	pipe(pd);
-					dup2(pd[0],0);
+					dup2(pd[0],0);			//set input of parent to read of pipe
 					argv[p] = NULL;
 					
 					
-		        		if (!fork()) {
-		            			dup2(pd[1], 1); // remap output back to parent
-		            			if(finalPipeIndex == 0) {
+		        		if (!fork()) {			//fork for command before pipe
+		            			dup2(pd[1], 1); 		// remap output back to parent
+		            			if(finalPipeIndex == 0) {	// edge case for first pipe
 							execve(argv[0], argv, environ);
 						} else {
-							dup2(prevPipe, 0);
-							execve(argv[finalPipeIndex+1], &argv[finalPipeIndex + 1], environ);
-							close(prevPipe);
+							dup2(prevPipe, 0);		//case for middle command (map previous pipe to stdin)
+							execve(argv[finalPipeIndex+1], &argv[finalPipeIndex + 1], environ);	//exec cammand after last pipe
+							close(prevPipe);		//close prev pipe
 						}
 					
 						close(pd[1]);
 						exit(0);
 			        }
 				
-				prevPipe = pd[0];
+				prevPipe = pd[0];			// store perious pipe read for next iteration 
 			        
+				//close unused pipes
 			        close(pd[1]);
+
+				//set pipe index to next pipe
 				finalPipeIndex = p;
 				}
 				p++;
@@ -301,8 +304,8 @@ void eval(char *cmdline)
 
 			//executing command
 			if(isPipe == 1){
+				//execute last command of pipes
 				execve(argv[finalPipeIndex + 1], &argv[finalPipeIndex+1], environ);
-				//close(pd[0]);
 				exit(0);
 			}else if (execve(argv[0], argv, environ) < 0) {
 				printf("%s: Command not found.\n", argv[0]);
