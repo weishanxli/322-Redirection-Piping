@@ -253,42 +253,57 @@ void eval(char *cmdline)
 			setpgid(0,0);
 
 			//-------------piping-----------------
+			int numPipes = 0;
+			while (argv[i] != NULL) {
+				if (!strcmp(argv[i], "|")) {
+					numPipes++;
+				}	
+			}
+
 			int p = 0;
+			int finalPipeIndex = 0;
 			int isPipe = 0;
 			while (argv[p] != NULL) {
+				
 				if (!strcmp(argv[p], "|")) {
 					isPipe = 1;
-
+					
 					int pd[2];
 			        pipe(pd);
-
-			        if (!fork()) {
-			            dup2(pd[1], 1); // remap output back to parent
-			            execve(argv[p], argv, NULL);
-			            perror("exec");
-			            abort();
+						
+					dup2(pd[0],0);
+					argv[p] = NULL;
+					
+					
+		        	if (!fork()) {
+		            	dup2(pd[1], 1); // remap output back to parent
+		            	if(finalPipeIndex == 0) {
+							execve(argv[0], argv, environ);
+						} else if (finalPipeIndex = numPipes) {
+							execve(argv[finalPipeIndex+1], &argv[finalPipeIndex + 1], environ);
+						}
+						exit(0);
 			        }
 
-			        // remap output from previous child to input
-			        dup2(pd[0], 0);
+			        close(pd[0]);
 			        close(pd[1]);
-
+					finalPipeIndex = p;
 				}
+				p++;
 			}
+
 
 			//-------------end piping-----------------
 
 			//executing command
-			if (isPipe) {
-				execve(argv[p], argv, environ);
-			} else {
-				if (execve(argv[0], argv, environ) < 0) {
-					printf("%s: Command not found.\n", argv[0]);
-					exit(0);
-				}
+			if(isPipe == 1){
+				execve(argv[finalPipeIndex + 1], &argv[finalPipeIndex+1], environ);
+				exit(0);
+			}else if (execve(argv[0], argv, environ) < 0) {
+				printf("%s: Command not found.\n", argv[0]);
+				exit(0);
 				
 			}
-			//executing command
 			
 		}
 
